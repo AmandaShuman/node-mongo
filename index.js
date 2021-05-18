@@ -1,11 +1,8 @@
-//will act as a client for the Mongo server
 const MongoClient = require('mongodb').MongoClient;
-//mongo requires a core module from node called assert
 const assert = require('assert').strict;
+const dboper = require('./operations'); //dboper is short for database operations - gives us access to operations.js
 
-//set up a connection to the mongodb server - 27017 is the port number in which the server is running
 const url = 'mongodb://localhost:27017/';
-//need to give name of database to connect to
 const dbname = 'nucampsite';
 
 //to access server to mongoClient - 1st argument is url; 2nd is object that sets various options (useUnifiedTopology is good to use to help with deprecation); 3rd is a callback function
@@ -23,19 +20,28 @@ MongoClient.connect(url, { useUnifiedTopology: true }, (err, client) => {
     assert.strictEqual(err, null);
     console.log('Dropped Collection', result); //true if it was successful
 
-    const collection = db.collection('campsites'); //recreate campsites collection
-
     //insert document into that collection
-    collection.insertOne({ name: "Breadcrumb Trail Campground", description: "Test" },
-    (err, result) => {
-      assert.strictEqual(err, null);
-      console.log('Insert Document:', result.ops); //ops is short for operations - this case will contain an array with document that was inserted
+    dboper.insertDocument(db, { name: "Breadcrumb Trail Campground", description: "Test" }, 'campsites', result => { //result is inline function definition - we haven't called it yet
+      console.log('Insert Document:', result.ops); 
+      
+      dboper.findDocuments(db, 'campsites', docs => {
+        console.log('Found Documents:', docs); //will log everything in campsites collection
 
-      //list documents in the collection using find method
-      collection.find().toArray((err, docs) => { //to get all items leave find parameter list empty
-        assert.strictEqual(err, null); //toArray method will convert document to an array of objects so we can console.log it
-        console.log('Found Documents:', docs);
-        client.close(); //closes connection to server
+        dboper.updateDocument(db, {name: "Breadcrumb Trail Campground" }, //look for the document with name and update the description field of that document - will only update single doc (if more than one code will break)
+          {description: "Updated Test Description"}, 'campsites', result => {
+            console.log("Updated Document Count:", result.result.nModified); 
+
+            dboper.findDocuments(db, 'campsites', docs => { //get list of all docs in campsites collection
+              console.log("Found Documents:", docs);
+
+              dboper.removeDocument(db, { name: "Breadcrumb Trail Campground" }, 'campsites', result => {
+                console.log('Delted Document Count:', result.deletedCount);
+
+                client.close();
+              });
+            });
+          }
+        );
       });
     });
   });
